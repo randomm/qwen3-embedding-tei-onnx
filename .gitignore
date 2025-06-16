@@ -72,3 +72,10 @@ onnx__*
 
 # HuggingFace
 .cache/
+
+# Generated output directories
+qwen3-tei-onnx/
+
+# Claude-specific files
+CLAUDE.md
+.claude/
