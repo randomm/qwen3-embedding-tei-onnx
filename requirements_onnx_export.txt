@@ -1,0 +1,7 @@
+torch>=2.0.0
+transformers>=4.35.0
+onnx>=1.14.0
+onnxruntime>=1.16.0
+optimum>=1.13.0
+protobuf>=3.20.0
+sentencepiece>=0.1.99
