@@ -106,7 +106,7 @@ class Qwen3EmbeddingONNXExporter:
                 str(temp_onnx),
                 export_params=True,
                 opset_version=14,
-                do_constant_folding=True,
+                do_constant_folding=False,  # CRITICAL: Set to False to prevent weight duplication with tied embeddings
                 input_names=['input_ids', 'attention_mask'],
                 output_names=['last_hidden_state'],
                 dynamic_axes={
