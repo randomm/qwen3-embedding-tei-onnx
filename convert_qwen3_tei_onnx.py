@@ -96,48 +96,54 @@ class Qwen3EmbeddingONNXExporter:
         wrapped_model = ModelWrapper(self.model)
         wrapped_model.eval()
         
-        # Export with external data in single file for TEI compatibility
-        with torch.no_grad():
-            # First export to a temporary file
-            temp_onnx = output_path / "temp_model.onnx"
-            torch.onnx.export(
-                wrapped_model,
-                (input_ids, attention_mask),
-                str(temp_onnx),
-                export_params=True,
-                opset_version=14,
-                do_constant_folding=False,  # CRITICAL: Set to False to prevent weight duplication with tied embeddings
-                input_names=['input_ids', 'attention_mask'],
-                output_names=['last_hidden_state'],
-                dynamic_axes={
-                    'input_ids': {0: 'batch_size', 1: 'sequence_length'},
-                    'attention_mask': {0: 'batch_size', 1: 'sequence_length'},
-                    'last_hidden_state': {0: 'batch_size', 1: 'sequence_length'}  # Both batch and sequence are dynamic
-                },
-                verbose=False
+        # Export to ONNX with proper cleanup
+        import tempfile
+        import shutil
+        
+        # Create a temporary directory for initial export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            temp_onnx = temp_path / "model.onnx"
+            
+            print("Stage 1: Initial ONNX export...")
+            with torch.no_grad():
+                torch.onnx.export(
+                    wrapped_model,
+                    (input_ids, attention_mask),
+                    str(temp_onnx),
+                    export_params=True,
+                    opset_version=14,
+                    do_constant_folding=True,  # Keep True to avoid size issues
+                    input_names=['input_ids', 'attention_mask'],
+                    output_names=['last_hidden_state'],
+                    dynamic_axes={
+                        'input_ids': {0: 'batch_size', 1: 'sequence_length'},
+                        'attention_mask': {0: 'batch_size', 1: 'sequence_length'},
+                        'last_hidden_state': {0: 'batch_size', 1: 'sequence_length'}
+                    },
+                    verbose=False
+                )
+            
+            print("Stage 2: Consolidating external data for TEI...")
+            # Load the model from temp location
+            onnx_model = onnx.load(str(temp_onnx))
+            
+            # Clean the output directory of any existing weight files
+            for file in output_path.glob("*.weight"):
+                file.unlink()
+            for file in output_path.glob("model.layers.*.weight"):
+                file.unlink()
+            
+            # Save with consolidated external data
+            onnx.save_model(
+                onnx_model,
+                str(onnx_path),
+                save_as_external_data=True,
+                all_tensors_to_one_file=True,
+                location="model.onnx_data",  # TEI expects this exact filename
+                size_threshold=1024,  # Externalize tensors larger than 1KB
+                convert_attribute=False
             )
-        
-        print("Consolidating external data for TEI...")
-        # Load the model (this loads all external data)
-        onnx_model = onnx.load(str(temp_onnx))
-        
-        # Remove temporary files
-        temp_onnx.unlink()
-        for file in output_path.glob("onnx__*"):
-            file.unlink()
-        if (output_path / "model.embed_tokens.weight").exists():
-            (output_path / "model.embed_tokens.weight").unlink()
-        
-        # Save with consolidated external data
-        onnx.save_model(
-            onnx_model,
-            str(onnx_path),
-            save_as_external_data=True,
-            all_tensors_to_one_file=True,
-            location="model.onnx_data",  # TEI expects this exact filename
-            size_threshold=1024,  # Externalize tensors larger than 1KB
-            convert_attribute=False
-        )
         
         print(f"ONNX model saved to: {onnx_path}")
         print(f"External data saved to: {output_path / 'model.onnx_data'}")

@@ -23,11 +23,11 @@ This creates a TEI-compatible ONNX model in `./qwen3-tei-onnx/`.
 - Fixes dynamic axes for proper batching
 - Validates the converted model
 
-## Important Note on Model Size
+## Technical Notes
 
-The ONNX export uses `do_constant_folding=False` to prevent weight duplication. The Qwen3 model has `tie_word_embeddings=true` in its configuration, which means the embedding weights are shared between input and output layers in the original PyTorch model. When `do_constant_folding=True` is used during ONNX export, it can break this weight sharing and duplicate the weights, effectively doubling the model size from ~4.7GB to ~8.9GB.
-
-By setting `do_constant_folding=False`, we preserve the model's original size and prevent unnecessary weight duplication.
+- Exports raw hidden states (3D tensor) without pooling - TEI applies pooling based on config
+- Uses temporary directory during export to ensure clean output
+- Consolidates all weights into single `model.onnx_data` file as required by TEI
 
 ## Using with TEI
 
