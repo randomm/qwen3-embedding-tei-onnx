@@ -3,20 +3,23 @@
 echo "🚀 Qwen3-Embedding-0.6B to TEI-compatible ONNX Converter"
 echo "========================================================"
 
-# Check if virtual environment exists
-if [ ! -d "venv_onnx" ]; then
-    echo "📦 Creating virtual environment..."
-    python3 -m venv venv_onnx
+# Remove old virtual environment if it exists
+if [ -d ".venv" ]; then
+    echo "🧹 Removing old virtual environment..."
+    rm -rf .venv
 fi
+
+# Create fresh virtual environment with uv
+echo "📦 Creating virtual environment with uv..."
+uv venv .venv
 
 # Activate virtual environment
 echo "🔌 Activating virtual environment..."
-source venv_onnx/bin/activate
+source .venv/bin/activate
 
-# Install dependencies
-echo "📥 Installing dependencies..."
-pip install -q --upgrade pip
-pip install -q -r requirements_onnx_export.txt
+# Install dependencies with uv
+echo "📥 Installing dependencies with uv..."
+uv pip install -r requirements_onnx_export.txt
 
 # Run the conversion
 echo ""

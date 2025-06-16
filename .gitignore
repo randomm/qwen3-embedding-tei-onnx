@@ -1,9 +1,9 @@
 # Python virtual environments
+.venv/
 venv_onnx/
 venv/
 env/
 ENV/
-.venv/
 
 # Python cache
 __pycache__/

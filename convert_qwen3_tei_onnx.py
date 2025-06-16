@@ -141,7 +141,7 @@ class Qwen3EmbeddingONNXExporter:
                 dynamic_axes={
                     'input_ids': {0: 'batch_size', 1: 'sequence_length'},
                     'attention_mask': {0: 'batch_size', 1: 'sequence_length'},
-                    'last_hidden_state': {0: 'batch_size', 1: 'embedding_dim'}
+                    'last_hidden_state': {0: 'batch_size'}  # Only batch dimension is dynamic
                 },
                 verbose=False
             )
