@@ -75,33 +75,12 @@ class Qwen3EmbeddingONNXExporter:
         input_ids = dummy_inputs["input_ids"]
         attention_mask = dummy_inputs["attention_mask"]
         
-        # Define the forward function for ONNX export
-        def forward_for_export(input_ids, attention_mask):
-            # Get model outputs
-            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-            
-            # Extract hidden states (last layer embeddings)
-            if hasattr(outputs, 'last_hidden_state'):
-                embeddings = outputs.last_hidden_state
-            else:
-                # For Qwen3, it might be in a different attribute
-                embeddings = outputs[0]
-            
-            # Apply mean pooling (as specified in porter.yaml)
-            # Expand attention mask for broadcasting
-            input_mask_expanded = attention_mask.unsqueeze(-1).expand(embeddings.size()).float()
-            sum_embeddings = torch.sum(embeddings * input_mask_expanded, 1)
-            sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-            embeddings = sum_embeddings / sum_mask
-            
-            return embeddings
-        
         # Export to ONNX
         print("Exporting to ONNX...")
         onnx_path = output_path / "model.onnx"
         
-        # Wrap the model to include pooling
-        class ModelWithPooling(torch.nn.Module):
+        # Wrap the model WITHOUT pooling - TEI will handle pooling
+        class ModelWrapper(torch.nn.Module):
             def __init__(self, model):
                 super().__init__()
                 self.model = model
@@ -110,19 +89,11 @@ class Qwen3EmbeddingONNXExporter:
                 outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
                 
                 if hasattr(outputs, 'last_hidden_state'):
-                    embeddings = outputs.last_hidden_state
+                    return outputs.last_hidden_state
                 else:
-                    embeddings = outputs[0]
-                
-                # Mean pooling
-                input_mask_expanded = attention_mask.unsqueeze(-1).expand(embeddings.size()).float()
-                sum_embeddings = torch.sum(embeddings * input_mask_expanded, 1)
-                sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-                embeddings = sum_embeddings / sum_mask
-                
-                return embeddings
+                    return outputs[0]
         
-        wrapped_model = ModelWithPooling(self.model)
+        wrapped_model = ModelWrapper(self.model)
         wrapped_model.eval()
         
         # Export with external data in single file for TEI compatibility
@@ -141,7 +112,7 @@ class Qwen3EmbeddingONNXExporter:
                 dynamic_axes={
                     'input_ids': {0: 'batch_size', 1: 'sequence_length'},
                     'attention_mask': {0: 'batch_size', 1: 'sequence_length'},
-                    'last_hidden_state': {0: 'batch_size'}  # Only batch dimension is dynamic
+                    'last_hidden_state': {0: 'batch_size', 1: 'sequence_length'}  # Both batch and sequence are dynamic
                 },
                 verbose=False
             )
@@ -190,7 +161,7 @@ class Qwen3EmbeddingONNXExporter:
         # Run inference
         ort_outputs = ort_session.run(None, ort_inputs)
         print(f"ONNX output shape: {ort_outputs[0].shape}")
-        print(f"Expected shape: [batch_size, embedding_dim]")
+        print(f"Expected shape: [batch_size, sequence_length, hidden_dim]")
         
         # Create a simple test script
         test_script = '''#!/bin/bash
