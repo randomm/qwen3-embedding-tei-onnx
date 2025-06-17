@@ -75,6 +75,7 @@ onnx__*
 
 # Generated output directories
 qwen3-tei-onnx/
+qwen3-tei-onnx-int8/
 
 # Claude-specific files
 CLAUDE.md

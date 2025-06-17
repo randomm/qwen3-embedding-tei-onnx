@@ -1,0 +1,7 @@
+# Core dependencies for ONNX conversion
+torch>=2.0.0
+transformers>=4.35.0
+onnx>=1.14.0
+onnxruntime>=1.16.0
+numpy
+huggingface-hub
