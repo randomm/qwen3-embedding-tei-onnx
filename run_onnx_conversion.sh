@@ -17,31 +17,50 @@ uv venv .venv
 echo "🔌 Activating virtual environment..."
 source .venv/bin/activate
 
+# Install pip-tools for requirements management
+echo "📥 Installing pip-tools..."
+uv pip install pip-tools
+
+# Compile requirements.in to requirements.txt
+echo "🔄 Compiling requirements..."
+uv pip compile requirements.in -o requirements.txt
+
 # Install dependencies with uv
 echo "📥 Installing dependencies with uv..."
-uv pip install -r requirements_onnx_export.txt
+uv pip install -r requirements.txt
 
-# Run the conversion
+# Run the unified conversion script
 echo ""
 echo "🔄 Starting ONNX conversion..."
-echo "This may take a few minutes..."
-python convert_qwen3_tei_onnx.py
+echo "This script will prompt you to choose between standard and quantized models."
+python convert_unified.py
 
-# Check if conversion was successful
-if [ -f "./qwen3-tei-onnx/model.onnx" ]; then
+# Check if conversion was successful (check both possible output directories)
+if [ -f "./qwen3-tei-onnx/model.onnx" ] || [ -f "./qwen3-tei-onnx-int8/model.onnx" ]; then
     echo ""
     echo "✅ Conversion successful!"
     echo ""
     echo "📊 Model info:"
-    ls -lh ./qwen3-tei-onnx/model.onnx
+    if [ -f "./qwen3-tei-onnx/model.onnx" ]; then
+        echo "Standard model:"
+        ls -lh ./qwen3-tei-onnx/model.onnx*
+    fi
+    if [ -f "./qwen3-tei-onnx-int8/model.onnx" ]; then
+        echo "INT8 quantized model:"
+        ls -lh ./qwen3-tei-onnx-int8/model.onnx*
+    fi
     echo ""
     echo "🚀 To use with TEI:"
     echo "1. Upload to HuggingFace Hub:"
     echo "   huggingface-cli login"
-    echo "   huggingface-cli upload YOUR_USERNAME/qwen3-embedding-0.6b-tei-onnx ./qwen3-tei-onnx"
+    if [ -f "./qwen3-tei-onnx/model.onnx" ]; then
+        echo "   huggingface-cli upload YOUR_USERNAME/qwen3-embedding-0.6b-tei-onnx ./qwen3-tei-onnx"
+    fi
+    if [ -f "./qwen3-tei-onnx-int8/model.onnx" ]; then
+        echo "   huggingface-cli upload YOUR_USERNAME/qwen3-embedding-0.6b-int8-tei-onnx ./qwen3-tei-onnx-int8"
+    fi
     echo ""
-    echo "2. Update porter.yaml:"
-    echo "   model-id: YOUR_USERNAME/qwen3-embedding-0.6b-tei-onnx"
+    echo "2. Update porter.yaml with your model ID"
 else
     echo ""
     echo "❌ Conversion failed. Check the error messages above."
